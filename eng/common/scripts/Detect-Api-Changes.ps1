@@ -108,6 +108,8 @@ $packageProperties = Get-ChildItem -Recurse -Force "$configFileDir" `
       $_.Extension -eq '.json' -and ($_.FullName.Substring($configFileDir.Length + 1) -notmatch '^_.*?\\')
     }
 
+Write-Host "packageProperties:  $packageProperties"
+
 foreach ($packagePropFile in $packageProperties)
 {
     $packageMetadata = Get-Content $packagePropFile | ConvertFrom-Json

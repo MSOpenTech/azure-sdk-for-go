@@ -27,6 +27,6 @@ func NewTemplateClient(pl runtime.Pipeline) *TemplateClient {
 }
 
 // SomeAPI is an example of an API.
-func (t *TemplateClient) SomeAPI(ctx context.Context, options *SomeAPIOptions) (TemplateClientSomeAPIResponse, error) {
-	return TemplateClientSomeAPIResponse{Value: to.Ptr("value")}, nil
+func (t *TemplateClient) SomeAPI(ctx context.Context, options *SomeAPIOptions) (TemplateClientSomeAPIResponses, error) {
+	return TemplateClientSomeAPIResponses{Value: to.Ptr("value")}, nil
 }
