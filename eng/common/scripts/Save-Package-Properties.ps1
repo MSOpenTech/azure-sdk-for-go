@@ -141,6 +141,7 @@ foreach ($pkg in $allPackageProperties)
     Write-Host "Package Version: $($pkg.Version)"
     Write-Host "Package SDK Type: $($pkg.SdkType)"
     Write-Host "Artifact Name: $($pkg.ArtifactName)"
+    Write-Host "Module Name: $($pkg.ModuleName)"
     Write-Host "Release date: $($pkg.ReleaseStatus)"
     $configFilePrefix = $pkg.Name
 
