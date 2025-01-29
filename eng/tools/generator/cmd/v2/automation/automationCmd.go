@@ -76,10 +76,28 @@ func execute(inputPath, outputPath, goVersion string) error {
 		}
 	}
 	if err != nil {
-		return err
+		// Temporary strategy: Only if the project is a management plane project, the generator will return an error.
+		if IsManagementPlaneProject(input) {
+			return err
+		}
+		fmt.Println(err)
 	}
 
 	return nil
+}
+
+func IsManagementPlaneProject(input *pipeline.GenerateInput) bool {
+	for _, tspProjectFolder := range input.RelatedTypeSpecProjectFolder {
+		if !strings.Contains(tspProjectFolder, ".Management") {
+			return false
+		}
+	}
+	for _, readme := range input.RelatedReadmeMdFiles {
+		if !strings.Contains(readme, "resource-manager") {
+			return false
+		}
+	}
+	return true
 }
 
 type automationContext struct {
@@ -144,7 +162,14 @@ func (ctx *automationContext) generate(input *pipeline.GenerateInput) (*pipeline
 				TspClientOptions:    []string{"--debug"},
 			}, packageModuleRelativePath)
 			if err != nil {
+				// save the error package for monitoring
 				errorBuilder.add(err)
+				errorPackageResult := pipeline.PackageResult{
+					PackageName:     packageModuleRelativePath,
+					HasExceptions:   true,
+					TypespecProject: []string{tspProjectFolder},
+				}
+				results = append(results, errorPackageResult)
 				continue
 			} else {
 				content := namespaceResult.ChangelogMD
@@ -209,6 +234,17 @@ func (ctx *automationContext) generate(input *pipeline.GenerateInput) (*pipeline
 		namespaceResults, errors := generateCtx.GenerateForAutomation(readme, input.RepoHTTPSURL, ctx.goVersion)
 		if len(errors) != 0 {
 			errorBuilder.add(errors...)
+			for _, result := range namespaceResults {
+				if !result.HasError {
+					continue
+				}
+				errorPackageResult := pipeline.PackageResult{
+					PackageName:   result.PackageName,
+					HasExceptions: true,
+					ReadmeMd:      []string{readme},
+				}
+				results = append(results, errorPackageResult)
+			}
 			continue
 		}
 
