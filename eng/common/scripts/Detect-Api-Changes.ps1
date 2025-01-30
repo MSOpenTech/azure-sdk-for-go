@@ -104,7 +104,14 @@ if (!($FindArtifactForApiReviewFn -and (Test-Path "Function:$FindArtifactForApiR
 $responses = @{}
 
 $packageProperties = Get-ChildItem -Recurse -Force "$configFileDir" `
-  | Where-Object { $_.Extension -eq '.json' -and $_.FullName -notmatch '\\_.*?\\' }
+  | ForEach-Object {
+    $relativePath = $_.FullName.Substring($configFileDir.Length).TrimStart('\', '/')
+    Write-Host "Processing: $relativePath"
+    if ($_.Extension -eq '.json' -and $relativePath -notmatch '^_.*?/') {
+        Write-Host "Included: $relativePath"
+        $_
+    }
+  }
 
 Write-Host "Package Properties: $($packageProperties.Count)"
 Write-Host "$packageProperties"
