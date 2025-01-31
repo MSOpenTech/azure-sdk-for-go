@@ -13,7 +13,6 @@ class PackageProps {
     [string]$SdkType
     [boolean]$IsNewSdk
     [string]$ArtifactName
-    [string]$ModuleName
     [string]$ReleaseStatus
     # was this package purely included because other packages included it as an AdditionalValidationPackage?
     [boolean]$IncludedForValidation

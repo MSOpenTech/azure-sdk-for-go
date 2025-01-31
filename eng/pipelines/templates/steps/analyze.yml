@@ -5,8 +5,7 @@ parameters:
   NonShipping: false
   LicenseCheck: true
   IsSdkLibrary: true
-  APIViewArtifactsName: "APIViewArtifacts"
-
+  ArtifactName: packages
 
 steps:
   - task: Powershell@2
@@ -20,18 +19,31 @@ steps:
     displayName: Dump Package properties
     condition: and(succeeded(), ${{ parameters.IsSdkLibrary }})
 
+  - pwsh: |
+      . $(Build.SourcesDirectory)/eng/scripts/analyze-step-helpers.ps1
+      $directoryToPublish = Join-Path -Path $(Build.ArtifactStagingDirectory) ${{ parameters.ArtifactName }}
+
+      New-GoArtifacts `
+        -ServiceDirectory '${{ parameters.ServiceDirectory }}' `
+        -OutputDirectory $(Build.ArtifactStagingDirectory) `
+        -DirectoryToPublish $directoryToPublish
+
+      Copy-Item "$(Build.ArtifactStagingDirectory)/PackageInfo" -Destination $directoryToPublish -Recurse
+    displayName: 'Create Go Package Artifact'
+
   - template: /eng/common/pipelines/templates/steps/publish-1es-artifact.yml
     parameters:
-      ArtifactName: "PackageInfo"
-      ArtifactPath: "$(Build.ArtifactStagingDirectory)/PackageInfo"
+      ArtifactName: ${{ parameters.ArtifactName }}
+      ArtifactPath: "$(Build.ArtifactStagingDirectory)/${{ parameters.ArtifactName }}"
       CustomCondition: and(succeeded(), ${{ parameters.IsSdkLibrary }})
+
   - template: /eng/common/pipelines/templates/steps/set-default-branch.yml
 
   - pwsh: |
-      . $(Build.SourcesDirectory)/eng/scripts/Create-ApiReview.ps1
-      New-APIView-From-CI `
+      . $(Build.SourcesDirectory)/eng/scripts/analyze-step-helpers.ps1
+      New-APIViewFromCI `
         -ServiceDirectory '${{parameters.ServiceDirectory}}' `
-        -ArtifactOutputDirectory '$(Build.ArtifactStagingDirectory)' `
+        -ArtifactPath '$(Build.ArtifactStagingDirectory)' `
         -ApiKey '$(azuresdk-apiview-apikey)' `
         -SourceBranch '$(Build.SourceBranchName)' `
         -DefaultBranch '$(DefaultBranch)' `
@@ -43,23 +55,7 @@ steps:
     condition: and(succeeded(), ne(variables['Skip.CreateApiReview'], 'true') , ne(variables['Build.Reason'],'PullRequest'), eq(variables['System.TeamProject'], 'internal'))
 
   - ${{ if eq(variables['Build.Reason'],'PullRequest') }}:
-    - pwsh: |
-        . $(Build.SourcesDirectory)/eng/scripts/Create-ApiReview.ps1
-        $_ = Create-APIViewArtifact `
-          -ServiceDirectory '${{parameters.ServiceDirectory}}' `
-          -ArtifactOutputDirectory '$(Build.ArtifactStagingDirectory)' `
-          -ArtifactName '${{parameters.APIViewArtifactsName}}'
-      displayName: Create APIView Artifact
-      workingDirectory: $(Pipeline.Workspace)
-
-    - template: /eng/common/pipelines/templates/steps/publish-1es-artifact.yml
-      parameters:
-        ArtifactName: "${{parameters.APIViewArtifactsName}}"
-        ArtifactPath: "$(Build.ArtifactStagingDirectory)/${{parameters.APIViewArtifactsName}}"
-
     - template: /eng/common/pipelines/templates/steps/detect-api-changes.yml
-      parameters:
-        ArtifactName: '${{parameters.APIViewArtifactsName}}'
 
   - ${{ if and(ne(variables['Skip.PackageValidation'], 'true'), eq(variables['System.TeamProject'], 'internal')) }}:
     - pwsh: |

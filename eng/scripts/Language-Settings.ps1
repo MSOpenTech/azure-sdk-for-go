@@ -58,7 +58,7 @@ function Get-GoModuleProperties($goModPath)
     $pkgProp.SdkType = $sdkType
 
     $pkgProp | Add-Member -NotePropertyName "VersionFile" -NotePropertyValue $versionFile
-    $pkgProp.ModuleName = $modName
+    $pkgProp | Add-Member -NotePropertyName "ModuleName" -NotePropertyValue $modName
 
     return $pkgProp
   }

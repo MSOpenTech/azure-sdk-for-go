@@ -6,39 +6,34 @@ Write-Host "$PSScriptRoot"
     Create .gosource APIVIew artifact for go
 .PARAMETER ServiceDirectory
     Thee name of the ServiceDirectory
-.PARAMETER ArtifactOutputDirectory
+.PARAMETER OutputDirectory
     Base output Directory path for the generated gosource artifacts
-.PARAMETER ArtifactName
-    Name of the group of artifacts to be created
+.PARAMETER DirectoryToPublish
+    Directory containing all artifacts to be publisehd to the pipeline
 #>
-function Create-APIViewArtifact {
+function New-GoArtifacts {
         Param(
         [Parameter(Mandatory=$True)]
         [string] $ServiceDirectory,
         [Parameter(Mandatory=$True)]
-        [string] $ArtifactOutputDirectory,
+        [string] $OutputDirectory,
         [Parameter(Mandatory=$True)]
-        [string] $ArtifactName
+        [string] $DirectoryToPublish       
     )
-
-    $artifactList = @()
-
-    $artifactsDirectoryPath = Join-Path -Path $ArtifactOutputDirectory $ArtifactName
-    New-Item -ItemType Directory -Path $artifactsDirectoryPath -force
 
     foreach ($sdk in (Get-AllPackageInfoFromRepo $ServiceDirectory))
     {
         Write-Host "Creating API review artifact for $($sdk.Name)"
-        New-Item -ItemType Directory -Path $artifactsDirectoryPath/$($sdk.Name) -force
+        $sdkDirectoryPath = Join-Path -Path $OutputDirectory $sdk.Name
+        New-Item -ItemType Directory -Path $sdkDirectoryPath -force
         $fileName = Split-Path -Path $sdk.Name -Leaf
-        Compress-Archive -Path $sdk.DirectoryPath -DestinationPath $artifactsDirectoryPath/$($sdk.Name)/$fileName -force
-        Rename-Item $artifactsDirectoryPath/$($sdk.Name)/$fileName.zip -NewName "$fileName.gosource"
+        $compressedArchivePath = Join-Path $sdkDirectoryPath "$fileName.zip"
+        Compress-Archive -Path $sdk.DirectoryPath -DestinationPath $compressedArchivePath -force
+        Rename-Item $compressedArchivePath -NewName "$fileName.gosource"
 
-        $artifactList += [PSCustomObject]@{
-            name = $sdk.Name
-        }
+        $artifactParentDirectory = Split-Path -Path $sdk.Name -Parent
+        Copy-Item "$OutputDirectory/$artifactParentDirectory" -Destination $DirectoryToPublish -Recurse
     }
-    return $artifactList
 }
 
 <#
@@ -46,10 +41,8 @@ function Create-APIViewArtifact {
     Create new automatic APIView from a CI run
 .PARAMETER ServiceDirectory
     Thee name of the ServiceDirectory
-.PARAMETER ArtifactOutputDirectory
-    Base output Directory path for the generated gosource artifacts
-.PARAMETER ArtifactName
-    Name of the group of artifacts to be created
+.PARAMETER ArtifactPath
+    Directory containing the gosources artifact
 .PARAMETER ApiKey
     The APIview ApiKey
 .PARAMETER SourceBranch
@@ -65,13 +58,12 @@ function Create-APIViewArtifact {
 .PARAMETER MarkPackageAsShipped
     Indicate weather to mark the package a s shipped
 #>
-function New-APIView-From-CI {
+function New-APIViewFromCI {
     Param(
         [Parameter(Mandatory=$True)]
         [string] $ServiceDirectory,
         [Parameter(Mandatory=$True)]
-        [string] $ArtifactOutputDirectory,
-        [string] $ArtifactName="APIViewArtifacts",
+        [string] $ArtifactPath,
         [Parameter(Mandatory=$True)]
         [string] $ApiKey,
         [Parameter(Mandatory=$True)]
@@ -84,10 +76,25 @@ function New-APIView-From-CI {
         [string] $BuildId,
         [bool] $MarkPackageAsShipped = $false
     )
-    $artifactList = Create-APIViewArtifact -ServiceDirectory $ServiceDirectory -ArtifactOutputDirectory $ArtifactOutputDirectory -ArtifactName $ArtifactName
+    $artifactList = @()
+    
+    Get-AllPackageInfoFromRepo $ServiceDirectory | ForEach-Object { 
+        $artifactList += [PSCustomObject]@{
+            name = $sdk.Name
+        }
+    }
+
     $createReviewScript = (Join-Path $PSScriptRoot .. common scripts Create-APIReview.ps1)
 
     Write-Host "Create Go APIView using generated artifacts"
-
-    &($createReviewScript) -ArtifactList $artifactList -ArtifactPath $outPath -APIKey $ApiKey -SourceBranch $SourceBranch -DefaultBranch $DefaultBranch -ConfigFileDir $ConfigFileDir -RepoName $RepoName -BuildId $BuildId -MarkPackageAsShipped $MarkPackageAsShipped
+    &($createReviewScript) `
+        -ArtifactList $artifactList `
+        -ArtifactPath $ArtifactPath `
+        -APIKey $ApiKey `
+        -SourceBranch $SourceBranch `
+        -DefaultBranch $DefaultBranch `
+        -ConfigFileDir $ConfigFileDir `
+        -RepoName $RepoName `
+        -BuildId $BuildId `
+        -MarkPackageAsShipped $MarkPackageAsShipped
 }

@@ -104,51 +104,41 @@ if (!($FindArtifactForApiReviewFn -and (Test-Path "Function:$FindArtifactForApiR
 $responses = @{}
 
 $packageProperties = Get-ChildItem -Recurse -Force "$configFileDir" `
-  | ForEach-Object {
-    $relativePath = $_.FullName.Substring($configFileDir.Length).TrimStart('\', '/')
-    Write-Host "Processing: $relativePath"
-    if ($_.Extension -eq '.json' -and $relativePath -notmatch '^_.*?/') {
-        Write-Host "Included: $relativePath"
-        $_
+  | Where-Object { 
+      $_.Extension -eq '.json' -and ($_.FullName.Substring($configFileDir.Length + 1) -notmatch '^_.*?\\')
     }
-  }
-
-Write-Host "Package Properties: $($packageProperties.Count)"
-Write-Host "$packageProperties"
 
 foreach ($packagePropFile in $packageProperties)
 {
     $packageMetadata = Get-Content $packagePropFile | ConvertFrom-Json
-    Write-Host "Package Metadata"
-    Write-Host $packageMetadata
+    $pkgArtifactName = $packageMetadata.ArtifactName ?? $packageMetadata.Name
 
-    $artifactOrModuleName = $packageMetadata.ArtifactName ?? $packageMetadata.Name
-    Write-Host "Processing $($artifactOrModuleName)"
+    Write-Host "Processing $($pkgArtifactName)"
 
-    $packages = &$FindArtifactForApiReviewFn $ArtifactPath $artifactOrModuleName
+    $packages = &$FindArtifactForApiReviewFn $ArtifactPath $pkgArtifactName
 
     if ($packages)
     {
         $pkgPath = $packages.Values[0]
-        $isRequired = Should-Process-Package -pkgPath $pkgPath -packageName $($artifactOrModuleName)
-        Write-Host "Is API change detect required for $($packages.ArtifactName):$($isRequired)"
+        $isRequired = Should-Process-Package -pkgPath $pkgPath -packageName $pkgArtifactName
+        Write-Host "Is API change detect required for $($pkgArtifactName):$($isRequired)"
         if ($isRequired -eq $True)
         {
             $filePath = $pkgPath.Replace($ArtifactPath , "").Replace("\", "/")
-            $respCode = Submit-Request -filePath $filePath -packageName $($artifactOrModuleName)
+            $respCode = Submit-Request -filePath $filePath -packageName $pkgArtifactName
             if ($respCode -ne '200')
             {
-                $responses[$($artifactOrModuleName)] = $respCode
+                $responses[$pkgArtifactName] = $respCode
             }
         }
         else
         {
-            Write-Host "Pull request does not have any change for $($artifactOrModuleName)). Skipping API change detect."
+            Write-Host "Pull request does not have any change for $($pkgArtifactName)). Skipping API change detect."
         }
     }
     else
     {
-        Write-Host "No package is found in artifact path to find API changes for $($artifactOrModuleName)"
+        Write-Host "No package is found in artifact path to find API changes for $($pkgArtifactName)"
     }
 }
 
