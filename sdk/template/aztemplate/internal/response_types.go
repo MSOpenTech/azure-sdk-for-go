@@ -9,7 +9,7 @@
 package internal
 
 // TemplateClientSomeAPIResponse contains the response from method TemplateClient.SomeAPI.
-type TemplateClientSomeAPIResponse struct {
+type TemplateClientSomeAPIResponses struct {
 	// can contain header values, unmarshaled response body payload etc
 	Value *string
 }
