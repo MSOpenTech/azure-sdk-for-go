@@ -186,6 +186,7 @@ func deleteSubscription(t *testing.T, ac *admin.Client, topicName string, subscr
 // and fails tests otherwise.
 func peekSingleMessageForTest(t *testing.T, receiver *Receiver) *ReceivedMessage {
 	var msg *ReceivedMessage
+	// TODO
 
 	// Peek, unlike Receive, doesn't block until at least one message has arrived, so we have to poll
 	// to get a similar effect.
@@ -201,7 +202,7 @@ func peekSingleMessageForTest(t *testing.T, receiver *Receiver) *ReceivedMessage
 		}
 	}, func(err error) bool {
 		return false
-	}, RetryOptions{})
+	}, RetryOptions{}, nil)
 
 	require.NoError(t, err)
 
